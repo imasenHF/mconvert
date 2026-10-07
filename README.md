@@ -2,8 +2,6 @@
 
 Mconvert 是一个调用 Multiwfn 交互式导出功能的 Bash 包装脚本，用于批量或单文件转换化学结构与波函数文件，并可按模板生成 Gaussian / ORCA 输入文件。
 
-这是一个历史工具项目，仓库 README 作为项目说明，不另设独立项目主页。
-
 公开署名：hyphoon  
 联系：wuhaifeng@ustc.edu.cn
 
@@ -71,6 +69,10 @@ Mconvert orca_template
 这些映射依赖 Multiwfn 主功能 `100 → 2` 的交互菜单编号。Multiwfn 版本变化后应重新检查菜单顺序和转换结果。
 
 Mconvert 本身不实现格式解析，实际转换由 Multiwfn 完成。科研使用时请同时遵循所用 Multiwfn 版本的引用要求。
+
+## 相关说明
+
+- [计算化学公社：Mconvert 介绍](http://bbs.keinsci.com/thread-39972-1-1.html)
 
 ## License
 
