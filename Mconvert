@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Mconvert — Multiwfn-assisted chemical structure and wavefunction converter.
 # Author: hyphoon <wuhaifeng@ustc.edu.cn>
-# Public cleanup based on the current script and the 2023 project notes.
 # Requires: Multiwfn in PATH, or MULTIWFN_BIN set to its executable path.
 
 MULTIWFN_BIN="${MULTIWFN_BIN:-Multiwfn}"
