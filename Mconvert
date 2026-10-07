@@ -21,6 +21,10 @@ Template generation:
   Mconvert gau_template
   Mconvert orca_template
 
+If template.gjf or orca_template.inp exists in the current directory,
+Multiwfn uses the corresponding template content and keywords when generating
+Gaussian or ORCA input files.
+
 Special format alias:
   oif means an ORCA input file; the generated file uses the .inp suffix.
 EOF
