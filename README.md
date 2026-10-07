@@ -60,6 +60,8 @@ Mconvert orca_template
 
 默认 Gaussian / ORCA 模板只是工作示例，计算方法、基组、溶剂、CPU 核数、内存、电荷与多重度均应按实际任务检查。
 
+如果当前目录中存在 `template.gjf` 或 `orca_template.inp`，生成 Gaussian / ORCA 输入文件时，Multiwfn 会按相应模板中的关键词和模板内容生成输入文件。因此可以先用上面的命令生成模板，修改计算关键词和资源设置，再进行批量转换。
+
 ## 支持的输出类型
 
 当前脚本封装：
@@ -76,4 +78,4 @@ Mconvert 本身不实现格式解析，实际转换由 Multiwfn 完成。科研�
 
 ## License
 
-当前未设置开源许可。
+[MIT License](LICENSE).
