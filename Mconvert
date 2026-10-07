@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+# Mconvert — Multiwfn-assisted chemical structure and wavefunction converter.
+# Author: hyphoon <wuhaifeng@ustc.edu.cn>
+# Public cleanup based on the current script and the 2023 project notes.
+# Requires: Multiwfn in PATH, or MULTIWFN_BIN set to its executable path.
+
+MULTIWFN_BIN="${MULTIWFN_BIN:-Multiwfn}"
+
+mconvert_help() {
+cat <<'EOF'
+Mconvert — Multiwfn-assisted structure/wavefunction file converter
+
+Batch conversion in the current directory:
+  Mconvert <input_ext>2<output_ext>
+  Example: Mconvert log2oif
+
+Single-file conversion:
+  Mconvert <input_file> <output_file>
+  Example: Mconvert Benzene.fchk Benzene.molden
+
+Template generation:
+  Mconvert gau_template
+  Mconvert orca_template
+
+Special format alias:
+  oif means an ORCA input file; the generated file uses the .inp suffix.
+EOF
+}
+
+write_gau_template() {
+cat > template.gjf <<'EOF'
+%nprocshared=32
+%mem=100GB
+%chk=[name].chk
+#p B3LYP/6-31G*
+
+[name]
+
+  0  1
+[geometry]
+EOF
+}
+
+write_orca_template() {
+cat > orca_template.inp <<'EOF'
+! XTB Opt ALPB(Water) noautostart miniprint nopop
+%pal nprocs  32 end
+%maxcore  3000
+* xyz   0   1
+[geometry]
+ *
+EOF
+}
+
+multiwfn_convert() {
+    local input_file="$1"
+    local requested_output_file="$2"
+    local input_ext="${input_file##*.}"
+    local output_ext="${requested_output_file##*.}"
+    local output_file="$requested_output_file"
+    local call_list=""
+    local created_orca_template=0
+
+    case "$output_ext" in
+        pqr|pdb) call_list="100\n2\n1\n${output_file}\n0\nq" ;;
+        xyz)     call_list="100\n2\n2\n${output_file}\n0\nq" ;;
+        chg)     call_list="100\n2\n3\n${output_file}\n0\nq" ;;
+        wfx)     call_list="100\n2\n4\n${output_file}\n0\nq" ;;
+        wfn)     call_list="100\n2\n5\n${output_file}\n0\nq" ;;
+        molden)  call_list="100\n2\n6\n${output_file}\n0\nq" ;;
+        fch|fchk) call_list="100\n2\n7\n${output_file}\n0\nq" ;;
+        47)      call_list="100\n2\n8\n${output_file}\n0\nq" ;;
+        mkl)     call_list="100\n2\n9\n${output_file}\n0\nq" ;;
+        cml)     call_list="100\n2\n31\n${output_file}\n0\nq" ;;
+        mwfn)    call_list="100\n2\n32\n${output_file}\n0\nq" ;;
+        cif)     call_list="100\n2\n33\n${output_file}\n0\nq" ;;
+        gro)     call_list="100\n2\n34\n${output_file}\n0\nq" ;;
+        oif|inp)
+            if [[ "$output_ext" == "oif" ]]; then
+                output_file="${requested_output_file%.*}.inp"
+            fi
+            if [[ ! -e orca_template.inp ]]; then
+                write_orca_template
+                created_orca_template=1
+            fi
+            call_list="100\n2\n12\n${output_file}\n-100\norca_template.inp\n0\nq"
+            ;;
+        gjf)
+            case "$input_ext" in
+                wfx|wfn|molden|fch|fchk|47|mkl|mwfn)
+                    call_list="100\n2\n10\n${output_file}\ny\n0\nq" ;;
+                *)
+                    call_list="100\n2\n10\n${output_file}\n0\nq" ;;
+            esac
+            ;;
+        *)
+            echo "Unsupported output format: .$output_ext" >&2
+            return 2
+            ;;
+    esac
+
+    if [[ ! -e "$input_file" ]]; then
+        echo "Input file not found: $input_file" >&2
+        [[ $created_orca_template -eq 1 ]] && rm -f orca_template.inp
+        return 2
+    fi
+
+    echo "Converting $input_file -> $output_file"
+    if printf '%b\n' "$call_list" | "$MULTIWFN_BIN" "$input_file" >/dev/null 2>&1; then
+        echo "  Done: $output_file"
+    else
+        local status=$?
+        echo "  Multiwfn returned a non-zero status ($status) for $input_file" >&2
+        [[ $created_orca_template -eq 1 ]] && rm -f orca_template.inp
+        return "$status"
+    fi
+
+    if [[ $created_orca_template -eq 1 ]]; then
+        rm -f orca_template.inp
+    fi
+    return 0
+}
+
+if [[ $# -eq 0 ]]; then
+    mconvert_help
+    exit 0
+fi
+
+if [[ $# -eq 1 ]]; then
+    case "$1" in
+        -h|--help|help)
+            mconvert_help
+            exit 0
+            ;;
+        gau_template)
+            write_gau_template
+            echo "Gaussian template written to $(pwd)/template.gjf"
+            exit 0
+            ;;
+        orca_template)
+            write_orca_template
+            echo "ORCA template written to $(pwd)/orca_template.inp"
+            exit 0
+            ;;
+    esac
+
+    if [[ "$1" =~ ^([^2]+)2([^2]+)$ ]]; then
+        input_ext="${BASH_REMATCH[1]}"
+        output_ext="${BASH_REMATCH[2]}"
+        shopt -s nullglob
+        files=( *."$input_ext" )
+        shopt -u nullglob
+        if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No *.$input_ext files found in $(pwd)" >&2
+            exit 1
+        fi
+        count=0
+        for file in "${files[@]}"; do
+            ((count+=1))
+            stem="${file%.*}"
+            if [[ "$output_ext" == "oif" ]]; then
+                output_file="${stem}.oif"
+            else
+                output_file="${stem}.${output_ext}"
+            fi
+            echo "($count of ${#files[@]})"
+            multiwfn_convert "$file" "$output_file" || exit $?
+        done
+        exit 0
+    fi
+
+    echo "Invalid argument: $1" >&2
+    mconvert_help
+    exit 2
+fi
+
+if [[ $# -eq 2 ]]; then
+    multiwfn_convert "$1" "$2"
+    exit $?
+fi
+
+echo "Too many arguments." >&2
+mconvert_help
+exit 2
